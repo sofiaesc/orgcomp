@@ -1,0 +1,5 @@
+.data
+valor: .word 0xabcd0000
+valor2: .word 0x12340000
+.text
+	# AGREGAR LINEAS PARA INTERCAMBIARLOS EN LA MEMORIA.

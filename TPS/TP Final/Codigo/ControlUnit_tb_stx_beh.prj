@@ -1,0 +1,4 @@
+vhdl isim_temp "MainDec.vhd"
+vhdl isim_temp "AluDec.vhd"
+vhdl isim_temp "ControlUnit.vhd"
+vhdl isim_temp "ControlUnit_tb.vhd"

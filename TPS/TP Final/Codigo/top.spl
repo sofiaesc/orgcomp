@@ -1,0 +1,7 @@
+[Inputs]
+clk
+reset
+[Outputs]
+=salida1[31:0]=
+=salida2[31:0]=
+[BiDir]

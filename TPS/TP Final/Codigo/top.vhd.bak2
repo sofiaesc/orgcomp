@@ -1,0 +1,282 @@
+library IEEE;
+use IEEE.std_logic_1164.all;
+use IEEE.numeric_std.all;
+
+--top
+--    imem    
+--    dmem
+--    rvsingle
+    --  Unidad control
+    --  datapath
+
+entity Top is
+    port(
+    	clk: in STD_LOGIC;
+      reset: in STD_LOGIC;
+		salida1, salida2: out std_logic_vector(31 downto 0)
+    );
+end entity;
+
+architecture behave of Top is
+
+   -- component rvsingle
+	
+	component DataPath
+		port(
+			clk, reset: in std_logic;
+			PCPlus4: in std_logic_vector(31 downto 0);
+			ResultSrc: in STD_LOGIC_VECTOR(1 downto 0);
+			Branch, ALUSrc: in STD_LOGIC;
+			RegWrite, Jump: in STD_LOGIC;
+			ImmSrc: in STD_LOGIC_VECTOR(1 downto 0);
+			ALUControl: in STD_LOGIC_VECTOR(2 downto 0)
+		);
+	end component;
+	
+	 
+	component ProgramCounter
+		port(
+			clk, reset: in std_logic;
+			PCnext: in std_logic_vector(31 downto 0);
+			PC: out std_logic_vector(31 downto 0)
+		);
+	end component;
+	
+	component Adder
+		port(
+			a, b: in std_logic_vector(31 downto 0);
+			y: out std_logic_vector(31 downto 0)
+		);
+	end component;
+	
+   component IMem
+		port(	
+			addr: in STD_LOGIC_VECTOR(31 downto 0);
+			instruction: out STD_LOGIC_VECTOR(31 downto 0)
+      );
+   end component;
+	
+	component RegFile
+		port(
+			clk: in STD_LOGIC;
+			WE: in STD_LOGIC;
+			A1, A2, A3: in STD_LOGIC_VECTOR(4 downto 0);
+			WD: in STD_LOGIC_VECTOR(31 downto 0);
+			RD1, RD2: out STD_LOGIC_VECTOR(31 downto 0)
+		);
+	end component;
+	
+	component Extend
+		port(
+			instr: in STD_LOGIC_VECTOR(31 downto 0);
+			immsrc: in STD_LOGIC_VECTOR(1 downto 0);
+			ImmExt: out STD_LOGIC_VECTOR(31 downto 0)
+		);
+	end component;
+	
+	component Mux2
+		port(
+			d0, d1: in STD_LOGIC_VECTOR(31 downto 0);
+			s: in STD_LOGIC;
+			y: out STD_LOGIC_VECTOR(31 downto 0)
+		);
+	end component;
+	
+	component Mux3
+		port(	
+			d0, d1, d2: in STD_LOGIC_VECTOR(31 downto 0);
+			s: in STD_LOGIC_VECTOR(1 downto 0);
+			y: out STD_LOGIC_VECTOR(31 downto 0)
+		);
+	end component;
+		
+	component ALU
+		port(
+			SrcA, SrcB: in STD_LOGIC_VECTOR(31 downto 0);
+			ALUControl: in STD_LOGIC_VECTOR(2 downto 0);
+			ALUResult: out STD_LOGIC_VECTOR(31 downto 0);
+			Zero: out STD_LOGIC
+		);
+	end component;
+	
+   component DMem
+      port(	
+			clk, WE: in STD_LOGIC;
+			addr, WD:   in STD_LOGIC_VECTOR(31 downto 0);
+			RD: out STD_LOGIC_VECTOR(31 downto 0)
+		);
+   end component;
+	
+	component ControlUnit
+		port(
+			op: in   STD_LOGIC_VECTOR(6 downto 0);
+			funct3: in STD_LOGIC_VECTOR(2 downto 0);
+			funct7b5: in STD_LOGIC;
+			ResultSrc: out STD_LOGIC_VECTOR(1 downto 0);
+			MemWrite: out STD_LOGIC;
+			Branch, ALUSrc: out STD_LOGIC;
+			RegWrite, Jump: out STD_LOGIC;
+			ImmSrc: out STD_LOGIC_VECTOR(1 downto 0);
+			ALUControl: out STD_LOGIC_VECTOR(2 downto 0)
+		);
+	end component;
+
+	 
+-- Señales del top
+--	signal clk, reset: std_logic;
+--	signal salida: std_logic_vector(31 downto 0);
+	
+-- Señales de la unidad de control (ControlUnit)
+	signal ResultSrc, ImmSrc: std_logic_vector(1 downto 0);
+	signal MemWrite, Branch, ALUSrc, RegWrite, Jump: std_logic;
+	signal ALUControl: std_logic_vector(2 downto 0);
+	
+-- Señales del contador de programa (ProgramCounter)
+	signal PC, PCnext: std_logic_vector(31 downto 0);
+
+-- Señales del sumador del contador de programa (Adder)
+	signal PCPlus4, PCTarget: std_logic_vector(31 downto 0);
+
+-- Señales del multiplexor del contador de programa (Inst_MuxPC)	
+	signal PCSrc: std_logic;
+	
+-- Señales de la memoria de instrucciones (IMem)
+	signal addr, instruction : std_logic_vector(31 downto 0);
+
+-- Señales del banco de registros (RegFile)
+	signal A1, A2, A3: std_logic_vector(4 downto 0);
+	signal WD_regfile, RD1, RD2: std_logic_vector(31 downto 0);
+	
+-- Señales del generador de inmediatos (Extend)
+	signal ImmExt: std_logic_vector (31 downto 0); -- La que va a la ALU
+	signal ImmExtMitad: std_logic_vector (31 downto 0); -- La que va al PC cuando branch o jump
+	
+-- Señales de la ALU (ALU)
+	signal SrcB, ALUResult: std_logic_vector(31 downto 0);
+	signal Zero: std_logic;
+
+-- Señales de la memoria de datos (DMem)
+	signal RD: std_logic_vector(31 downto 0);
+
+begin
+
+--PCSrc <= Branch and Zero; -- Para los saltos
+PCSrc <= (Jump or (Branch and Zero)); -- Para los saltos
+
+-- Utiliza la mitad del immediato para branch y jump por como estan organizados los
+-- indices de la memoria de instrucciones.
+ImmExtMitad <= '0' & ImmExt(31 downto 1) when ImmExt(31) = '0' else '1' & ImmExt(31 downto 1);
+
+
+inst_ControlUnit: ControlUnit
+	port map(
+		op => instruction(6 downto 0),
+		funct3 => instruction(14 downto 12),
+		funct7b5 => instruction(30),
+		ResultSrc => ResultSrc,
+		MemWrite => MemWrite,
+		Branch => Branch,
+		ALUSrc => ALUSrc,
+		RegWrite => RegWrite,
+		Jump => Jump,
+		ImmSrc => ImmSrc,
+		ALUControl => ALUControl
+	);
+
+
+inst_ProgramCounter: ProgramCounter
+	port map(
+		clk => clk,
+		reset => reset,
+		PCnext => PCNext,
+		PC => PC
+	);
+	
+inst_Adder: Adder
+	port map(
+		a => PC,
+		b => X"00000001",
+		y => PCPlus4
+	);
+
+inst_Jump: Adder
+	port map(
+		a => PC,
+		b => ImmExtMitad,
+		y => PCTarget
+	);
+
+inst_MuxPC: Mux2
+	port map(
+		d0 => PCPlus4,
+		d1 => PCTarget,
+		s => PCSrc,
+		y => PCNext
+	);
+
+inst_IMem: IMem
+	port map(
+		addr => PC,
+		instruction => instruction
+	);
+
+
+inst_RegFile: RegFile
+	port map(
+		clk => clk,
+		WE => RegWrite,
+		A1 => instruction(19 downto 15),
+		A2 => instruction(24 downto 20),
+		A3 => instruction(11 downto 7), 
+		WD => WD_regfile,
+		RD1 => RD1,
+		RD2 => RD2
+	);
+	
+inst_Extend: Extend
+	port map(
+		instr => instruction(31 downto 0), 
+		immsrc => ImmSrc,
+		ImmExt => ImmExt
+	);
+	
+	
+inst_MuxALU: Mux2
+	port map(
+		d0 => RD2,
+		d1 => ImmExt,
+		s => ALUSrc,
+		y => SrcB
+	);
+	
+inst_ALU: ALU
+	port map(
+		SrcA => RD1,
+		SrcB => SrcB,
+		ALUControl => ALUControl,
+		ALUResult => ALUResult,
+		Zero => Zero
+	);
+
+inst_DMem: DMem
+	port map(
+		clk => clk,
+		WE => MemWrite,
+		addr => AluResult,
+		WD => RD2,
+		RD => RD
+	);
+
+inst_MuxWD: Mux3
+	port map(
+		d0 => ALUResult,
+		d1 => RD,
+		d2 => PCPlus4,
+		s => ResultSrc,
+		y => WD_regfile
+	);
+
+salida1 <= ALUResult;
+salida2 <= WD_regfile;
+
+end architecture;

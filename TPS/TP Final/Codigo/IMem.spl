@@ -1,0 +1,5 @@
+[Inputs]
+=addr[31:0]=
+[Outputs]
+=instruction[31:0]=
+[BiDir]

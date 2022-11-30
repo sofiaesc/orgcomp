@@ -1,0 +1,5 @@
+set -tmpdir "/media/sf_VHDL/riscVmonociclo/xst/projnav.tmp"
+set -xsthdpdir "/media/sf_VHDL/riscVmonociclo/xst"
+elaborate
+-ifn AluDec.prj
+-ifmt mixed

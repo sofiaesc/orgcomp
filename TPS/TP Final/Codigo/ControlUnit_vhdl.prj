@@ -1,0 +1,3 @@
+vhdl work "/media/sf_VHDL/riscVmonociclo/MainDec.vhd"
+vhdl work "/media/sf_VHDL/riscVmonociclo/AluDec.vhd"
+vhdl work "/media/sf_VHDL/riscVmonociclo/ControlUnit.vhd"

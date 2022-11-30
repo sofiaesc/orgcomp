@@ -1,0 +1,2 @@
+vhdtdtfi -lib work adder.vhd -prj riscVmonociclo -o Adder.spl -module Adder -template /opt/Xilinx/14.7/ISE_DS/ISE//data/splfile.tft -deleteonerror 
+spl2sym -intstyle ise -family spartan3e Adder.spl /media/sf_VHDL/riscVmonociclo/Adder.sym 
